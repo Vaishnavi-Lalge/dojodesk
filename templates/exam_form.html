@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field, select with context %}
+{% block title %}Schedule examination{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Schedule examination</h1><p>Eligibility checks are a guide for the instructor. Nobody is promoted automatically.</p></div></div>
+<form class="filters card" method="get" aria-label="Choose student"><div class="field"><label for="student_id_pick">Student</label>
+  <select id="student_id_pick" name="student_id" data-autosubmit><option value="">Choose a student</option>{% for s in students %}<option value="{{ s.id }}" {{ 'selected' if form.get('student_id')|string == s.id|string }}>{{ s.full_name }} – {{ s.belt_name }}</option>{% endfor %}</select></div>
+  <noscript><button class="btn btn-secondary" type="submit">Load</button></noscript></form>
+{% if form.get('student_id') %}
+{% if elig %}<div class="card stack"><h2>Eligibility for {{ elig.belt.name }} <span class="muted">(advisory)</span></h2>
+  <ul class="check-list">{% for c in elig.checks %}<li><i class="fa-solid {{ 'fa-circle-check yes' if c.ok else 'fa-circle-xmark no' }}" aria-hidden="true"></i><span><strong class="sr-only">{{ 'Met: ' if c.ok else 'Not met: ' }}</strong>{{ c.label }}<br><span class="muted">{{ c.detail }}</span></span></li>{% endfor %}</ul>
+  {% if elig.belt.requirements %}<p class="muted" style="margin-top:10px">Grading requirements: {{ elig.belt.requirements }}</p>{% endif %}</div>{% endif %}
+<form class="card" method="post" novalidate>
+  {{ csrf() }}<input type="hidden" name="student_id" value="{{ form.student_id }}">
+  {% if errors.get('student_id') %}<p class="error" role="alert">{{ errors['student_id'] }}</p>{% endif %}
+  <div class="form-grid">
+    {{ select('target_belt_id', 'Examined for', belts|pairs, form.get('target_belt_id'), errors, required=True, blank='Choose a belt') }}
+    {{ field('exam_date', 'Examination date', form, errors, type='date', required=True) }}
+    {{ field('exam_fee', 'Exam fee (0 if none)', form, errors, type='number', attrs='step="0.01" min="0" inputmode="decimal"', hint='A fee above zero is added to the student\'s fees.') }}
+    <div class="field"><span class="label-text">Instructor's decision</span><label class="check"><input type="checkbox" name="eligible" {{ 'checked' if form.get('eligible') }}> Student is eligible to test</label></div>
+    {{ field('eligibility_notes', 'Eligibility notes', form, errors, type='textarea', full=True) }}
+  </div>
+  <div class="form-actions"><button class="btn btn-primary" type="submit">Schedule exam</button><a class="btn btn-secondary" href="{{ url_for('exams.index') }}">Cancel</a></div>
+</form>
+{% else %}<div class="card"><p class="muted">Choose a student above to see their eligibility and schedule a grading.</p></div>{% endif %}
+{% endblock %}

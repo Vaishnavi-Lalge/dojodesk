@@ -1,0 +1,29 @@
+# Render Blueprint. Create it with: New + > Blueprint > pick this repository.
+services:
+  - type: web
+    name: dojodesk
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # Migrations run on every start; they are idempotent and take a database lock.
+    startCommand: flask --app app db-upgrade && gunicorn "app:create_app()" --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 60 --access-logfile -
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: APP_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DB_SSLMODE
+        value: require
+      - key: DATABASE_URL        # Supabase pooler string, password URL-encoded
+        sync: false
+      - key: ADMIN_USERNAME      # only used while no admin exists
+        sync: false
+      - key: ADMIN_FULL_NAME
+        sync: false
+      - key: ADMIN_PASSWORD_HASH # from: flask --app app hash-password
+        sync: false
+      - key: DOJO_NAME
+        sync: false

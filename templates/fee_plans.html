@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field, select, badge with context %}
+{% block title %}Fee plans{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Fee plans</h1><p>Standard monthly or term fees. Changing a plan never changes fees already created.</p></div></div>
+<div class="grid g2" style="grid-template-columns:2fr 1fr;align-items:start">
+  <div class="card"><h2>Plans</h2>
+  {% if plans %}<div class="table-wrap"><table class="responsive"><thead><tr><th scope="col">Plan</th><th scope="col">Type</th><th scope="col" class="num">Amount</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody>
+    {% for p in plans %}<tr><td data-label="Plan">{{ p.name }}</td><td data-label="Type">{{ p.period|capitalize }}</td><td data-label="Amount" class="num">{{ p.amount|money }}</td><td data-label="Status">{{ badge('active' if p.is_active else 'inactive') }}</td>
+      <td data-label="" class="right"><a class="btn btn-secondary btn-sm" href="{{ url_for('fees.plans', edit=p.id) }}">Edit</a></td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="muted">No plans yet. Add one, for example “Monthly tuition”.</p>{% endif %}</div>
+  <form class="card" method="post" novalidate><h2>{{ 'Edit plan' if form.get('id') else 'New plan' }}</h2>
+    {{ csrf() }}<input type="hidden" name="plan_id" value="{{ form.get('id') or '' }}">
+    <div class="stack" style="margin:0">
+      {{ field('name', 'Plan name', form, errors, required=True) }}
+      {{ field('amount', 'Amount', form, errors, type='number', required=True, attrs='step="0.01" min="0.01" inputmode="decimal"') }}
+      {{ select('period', 'Billed', [('monthly','Monthly'),('term','Per term')], form.get('period'), errors, required=True) }}
+      <label class="check"><input type="checkbox" name="is_active" {{ 'checked' if form.get('is_active', True) }}> Active</label>
+      <div class="actions"><button class="btn btn-primary" type="submit">Save plan</button>{% if form.get('id') %}<a class="btn btn-secondary" href="{{ url_for('fees.plans') }}">Cancel</a>{% endif %}</div></div></form>
+</div>
+{% endblock %}

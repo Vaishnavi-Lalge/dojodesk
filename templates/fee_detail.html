@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, badge with context %}
+{% block title %}{{ fee.description }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ fee.description }}</h1><p><a href="{{ url_for('students.detail', student_id=fee.sid) }}">{{ fee.full_name }}</a> · {{ fee.student_code }} · period {{ fee.period_label }} · {{ badge(fee.status) }}</p></div>
+  <div class="actions"><a class="btn btn-secondary" href="{{ url_for('fees.index') }}">Back to fees</a></div></div>
+<div class="grid g3 stack">
+  <div class="card stat"><span class="k">Amount due</span><span class="v">{{ fee.amount_due|money }}</span><span class="s">Due {{ fee.due_date|dfmt }}</span></div>
+  <div class="card stat"><span class="k">Paid so far</span><span class="v">{{ fee.amount_paid|money }}</span></div>
+  <div class="card stat"><span class="k">Balance</span><span class="v">{{ fee.balance|money }}</span></div>
+</div>
+<div class="grid g2" style="grid-template-columns:2fr 1fr;align-items:start">
+  <div class="card"><h2>Payment history</h2>
+    {% if payments %}<div class="table-wrap"><table class="responsive"><thead><tr><th scope="col">Receipt</th><th scope="col">Date</th><th scope="col">Method</th><th scope="col" class="num">Amount</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody>
+      {% for p in payments %}<tr>
+        <td data-label="Receipt"><a href="{{ url_for('fees.receipt', payment_id=p.id) }}">{{ p.receipt_no }}</a> {{ badge(p.kind) }}{% if p.reason %}<br><span class="muted">{{ p.reason }}</span>{% endif %}</td>
+        <td data-label="Date" class="nowrap">{{ p.paid_on|dfmt }}</td><td data-label="Method">{{ p.method|replace('_',' ')|capitalize }}</td>
+        <td data-label="Amount" class="num">{{ p.amount|money }}</td>
+        <td data-label="" class="right">{% if is_admin() and p.kind == 'payment' and p.amount > p.refunded %}
+          <details><summary class="btn btn-danger btn-sm">Refund / correct</summary>
+            <form method="post" action="{{ url_for('fees.refund', fee_id=fee.id) }}" data-confirm="Record this refund? Payments are never edited – this adds a refund entry to the audit trail." data-confirm-label="Record refund" style="text-align:left;margin-top:8px">
+              {{ csrf() }}<input type="hidden" name="payment_id" value="{{ p.id }}">
+              <div class="field"><label for="ra{{ p.id }}">Amount (max {{ p.amount - p.refunded }})</label><input id="ra{{ p.id }}" name="amount" type="number" step="0.01" min="0.01" max="{{ p.amount - p.refunded }}" required></div>
+              <div class="field"><label for="rr{{ p.id }}">Reason</label><input id="rr{{ p.id }}" name="reason" required maxlength="300"></div>
+              <button class="btn btn-danger btn-sm" type="submit" style="margin-top:8px">Record refund</button></form></details>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="muted">No payments yet.</p>{% endif %}</div>
+  <div class="card"><h2>Record a payment</h2>
+    {% if fee.balance > 0 %}
+    <form method="post" action="{{ url_for('fees.pay', fee_id=fee.id) }}">
+      {{ csrf() }}<input type="hidden" name="idem_key" value="{{ idem_key }}">
+      <div class="stack" style="margin:0">
+        <div class="field"><label for="amount">Amount</label><input id="amount" name="amount" type="number" step="0.01" min="0.01" max="{{ fee.balance }}" value="{{ fee.balance }}" required inputmode="decimal"><span class="hint">Pay part now and the rest later if needed.</span></div>
+        <div class="field"><label for="method">Method</label><select id="method" name="method" required>{% for v, t in methods %}<option value="{{ v }}">{{ t }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="paid_on">Payment date</label><input id="paid_on" name="paid_on" type="date" value="{{ today().isoformat() }}" max="{{ today().isoformat() }}" required></div>
+        <div class="field"><label for="reference">Reference (optional)</label><input id="reference" name="reference" maxlength="80" placeholder="UPI ref, cheque no."></div>
+        <button class="btn btn-primary" type="submit">Record payment</button></div></form>
+    {% else %}<p class="notice ok">This fee is fully paid.</p>{% endif %}</div>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, badge, belt, confirm_button, empty with context %}
+{% block title %}{{ batch.name }}{% endblock %}
+{% block content %}
+{% set full = roster|length >= batch.capacity %}
+<div class="page-head"><div><h1>{{ batch.name }}</h1><p>{{ batch.batch_code }} · {{ batch.instructor }} · {{ batch.training_days|join(', ') }} · {{ batch.start_time|tfmt }}–{{ batch.end_time|tfmt }} · {{ badge('active' if batch.is_active else 'inactive') }}</p></div>
+  <div class="actions"><a class="btn btn-primary" href="{{ url_for('attendance.register', batch=batch.id) }}"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Take attendance</a>
+    <a class="btn btn-secondary" href="{{ url_for('batches.edit', batch_id=batch.id) }}">Edit</a>
+    <a class="btn btn-secondary" href="{{ url_for('reports.view', key='attendance_students', batch=batch.id) }}">Attendance report</a></div></div>
+<div class="grid g2" style="grid-template-columns:2fr 1fr;align-items:start">
+  <div class="card"><div class="card-head"><h2>Students ({{ roster|length }} of {{ batch.capacity }})</h2>{% if full %}<span class="badge pending">Full</span>{% endif %}</div>
+    {% if roster %}<div class="table-wrap"><table class="responsive"><thead><tr><th scope="col">Student</th><th scope="col">Belt</th><th scope="col">Since</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>{% for r in roster %}<tr><td data-label="Student"><a href="{{ url_for('students.detail', student_id=r.id) }}">{{ r.full_name }}</a> <span class="muted">{{ r.student_code }}</span></td>
+        <td data-label="Belt">{{ belt(r.belt_name, r.color_hex) }}</td><td data-label="Since">{{ r.enrolled_on|dfmt }}</td>
+        <td data-label="" class="right">{{ confirm_button(url_for('batches.remove', batch_id=batch.id, student_id=r.id), 'Remove', 'Remove ' ~ r.full_name ~ ' from ' ~ batch.name ~ '? Their past attendance is kept.', 'Remove') }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}{{ empty('fa-user-plus', 'No students in this batch', 'Enrol students using the form.') }}{% endif %}</div>
+  <form class="card" method="post" action="{{ url_for('batches.enroll', batch_id=batch.id) }}"><h2>Enrol a student</h2>
+    {{ csrf() }}
+    {% if not batch.is_active %}<p class="notice warn">This batch is inactive, so new students can't be enrolled.</p>{% endif %}
+    <div class="field"><label for="student_id">Student</label><select id="student_id" name="student_id" required><option value="">Choose a student</option>{% for c in candidates %}<option value="{{ c.id }}">{{ c.full_name }} ({{ c.student_code }})</option>{% endfor %}</select></div>
+    {% if full and is_admin() %}<label class="check" style="margin-top:12px"><input type="checkbox" name="override"> Enrol even though the batch is full (administrator override, recorded in the audit log)</label>
+    {% elif full %}<p class="notice warn" style="margin-top:12px">This batch is full. Only an administrator can go over the limit.</p>{% endif %}
+    <div class="form-actions"><button class="btn btn-primary" type="submit" {{ 'disabled' if not batch.is_active }}>Enrol student</button></div></form>
+</div>
+{% endblock %}

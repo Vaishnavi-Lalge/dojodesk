@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, pager, empty with context %}
+{% block title %}{{ title if key else 'Reports' }}{% endblock %}
+{% block content %}
+{% if not key %}
+<div class="page-head"><div><h1>Reports</h1><p>View on screen, print, or export to CSV.</p></div></div>
+<div class="grid g3">{% for k, r in reports.items() %}{% if not r[3] or is_admin() %}
+  <a class="card" href="{{ url_for('reports.view', key=k) }}" style="text-decoration:none;color:inherit"><h2>{{ r[0] }}</h2><p class="muted" style="margin:6px 0 0">{{ r[1] }}</p>{% if r[3] %}<p class="hint" style="margin:8px 0 0">Administrators only</p>{% endif %}</a>{% endif %}{% endfor %}</div>
+{% else %}
+<div class="page-head"><div><h1>{{ title }}</h1><p>{{ desc }}</p></div>
+  <div class="actions"><button class="btn btn-secondary" type="button" data-print><i class="fa-solid fa-print" aria-hidden="true"></i> Print</button>
+    <a class="btn btn-secondary" href="{{ url_with(format='csv', page=None) }}" data-no-loading><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export CSV</a>
+    <a class="btn btn-secondary" href="{{ url_for('reports.index') }}">All reports</a></div></div>
+{% if filters %}
+<form class="filters card" method="get">
+  {% if 'date' in filters %}<div class="field"><label for="from">From</label><input id="from" name="from" type="date" value="{{ d_from.isoformat() }}"></div>
+  <div class="field"><label for="to">To</label><input id="to" name="to" type="date" value="{{ d_to.isoformat() }}"></div>{% endif %}
+  {% if 'batch' in filters %}<div class="field"><label for="batch">Batch</label><select id="batch" name="batch"><option value="">All batches</option>{% for b in batches %}<option value="{{ b.id }}" {{ 'selected' if request.args.get('batch') == b.id|string }}>{{ b.name }}</option>{% endfor %}</select></div>{% endif %}
+  {% if 'period' in filters %}<div class="field"><label for="period">Group by</label><select id="period" name="period">{% for v, t in [('day','Day'),('week','Week'),('month','Month')] %}<option value="{{ v }}" {{ 'selected' if request.args.get('period','day') == v }}>{{ t }}</option>{% endfor %}</select></div>{% endif %}
+  {% if 'status' in filters %}<div class="field"><label for="status">Status</label><select id="status" name="status"><option value="">All</option>{% for v in ['active','inactive','archived'] %}<option value="{{ v }}" {{ 'selected' if request.args.get('status') == v }}>{{ v|capitalize }}</option>{% endfor %}</select></div>{% endif %}
+  {% if 'fee_status' in filters %}<div class="field"><label for="status">Status</label><select id="status" name="status"><option value="">All outstanding</option>{% for v in ['pending','partial','overdue'] %}<option value="{{ v }}" {{ 'selected' if request.args.get('status') == v }}>{{ {'partial':'Partly paid'}.get(v, v|capitalize) }}</option>{% endfor %}</select></div>{% endif %}
+  {% if 'result' in filters %}<div class="field"><label for="result">Result</label><select id="result" name="result"><option value="">Any</option>{% for v in ['pending','passed','failed'] %}<option value="{{ v }}" {{ 'selected' if request.args.get('result') == v }}>{{ v|capitalize }}</option>{% endfor %}</select></div>{% endif %}
+  <div class="actions"><button class="btn btn-primary" type="submit">Apply</button></div></form>{% endif %}
+<p class="print-only">{{ dojo_name }} · printed {{ today().strftime('%d %b %Y') }}</p>
+{% if page.rows %}<div class="table-wrap"><table class="responsive"><thead><tr>{% for c in columns %}<th scope="col" {% if c[2] in ('money','int','pct') %}class="num"{% endif %}>{{ c[1] }}</th>{% endfor %}</tr></thead><tbody>
+  {% for r in page.rows %}<tr>{% for c in columns %}{% set v = r[c[0]] %}<td data-label="{{ c[1] }}" {% if c[2] in ('money','int','pct') %}class="num"{% endif %}>
+    {%- if v is none %}—{% elif c[2] == 'money' %}{{ v|money }}{% elif c[2] == 'date' %}{{ v|dfmt }}{% elif c[2] == 'pct' %}{{ v }}%{% elif c[0] == 'status' or c[0] == 'result' %}{{ badge(v|lower) }}{% else %}{{ v }}{% endif -%}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+{{ pager(page, 'rows') }}
+{% else %}<div class="card">{{ empty('fa-chart-column', 'Nothing to report', 'No records match these filters. Try a wider date range.') }}</div>{% endif %}
+{% endif %}
+{% endblock %}

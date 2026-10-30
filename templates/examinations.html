@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, belt, pager, empty with context %}
+{% block title %}Examinations{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Belt examinations</h1><p>Schedule gradings, record results, then approve promotions.</p></div>
+  <div class="actions"><a class="btn btn-primary" href="{{ url_for('exams.create') }}"><i class="fa-solid fa-plus" aria-hidden="true"></i> Schedule exam</a></div></div>
+<form class="filters card" method="get" role="search">
+  <div class="field grow"><label for="q">Student</label><input id="q" name="q" type="search" value="{{ request.args.get('q','') }}" placeholder="Name or student ID"></div>
+  <div class="field"><label for="result">Result</label><select id="result" name="result"><option value="">Any result</option>{% for r in results %}<option value="{{ r }}" {{ 'selected' if request.args.get('result') == r }}>{{ r|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="from">From</label><input id="from" name="from" type="date" value="{{ request.args.get('from','') }}"></div>
+  <div class="field"><label for="to">To</label><input id="to" name="to" type="date" value="{{ request.args.get('to','') }}"></div>
+  <div class="actions"><button class="btn btn-primary" type="submit">Apply</button><a class="btn btn-secondary" href="{{ url_for('exams.index') }}">Clear</a></div></form>
+{% if page.rows %}<div class="table-wrap"><table class="responsive"><thead><tr><th scope="col">Date</th><th scope="col">Student</th><th scope="col">Grading</th><th scope="col">Eligible</th><th scope="col">Result</th><th scope="col">Promotion</th></tr></thead><tbody>
+  {% for x in page.rows %}<tr><td data-label="Date" class="nowrap"><a href="{{ url_for('exams.detail', exam_id=x.id) }}">{{ x.exam_date|dfmt }}</a></td>
+    <td data-label="Student"><a href="{{ url_for('students.detail', student_id=x.student_id) }}">{{ x.full_name }}</a></td>
+    <td data-label="Grading">{{ x.from_belt }} → {{ belt(x.target_belt, x.color_hex) }}</td><td data-label="Eligible">{{ 'Yes' if x.eligible else 'Not marked' }}</td>
+    <td data-label="Result">{{ badge(x.result) }}</td>
+    <td data-label="Promotion">{% if x.promotion_id %}<a href="{{ url_for('exams.certificate', promotion_id=x.promotion_id) }}">Approved · certificate</a>{% elif x.result == 'passed' %}<a href="{{ url_for('exams.detail', exam_id=x.id) }}">Awaiting approval</a>{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+{{ pager(page, 'examinations') }}
+{% else %}<div class="card">{{ empty('fa-award', 'No examinations found', 'Schedule a grading when a student is ready to test for their next belt.', url_for('exams.create'), 'Schedule exam') }}</div>{% endif %}
+{% endblock %}

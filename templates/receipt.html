@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Receipt {{ p.receipt_no }}{% endblock %}
+{% block content %}
+<div class="page-head no-print"><div><h1>{{ 'Refund note' if p.kind == 'refund' else 'Payment receipt' }}</h1></div>
+  <div class="actions"><button class="btn btn-primary" type="button" data-print><i class="fa-solid fa-print" aria-hidden="true"></i> Print</button><a class="btn btn-secondary" href="{{ url_for('fees.detail', fee_id=p.fee_id) }}">Back to fee</a></div></div>
+<article class="receipt">
+  <h1>{{ dojo_name }}</h1><p class="muted">{{ 'Refund note' if p.kind == 'refund' else 'Payment receipt' }} <strong>{{ p.receipt_no }}</strong></p>
+  <table><tbody>
+    <tr><td class="muted">Student</td><td>{{ p.full_name }} ({{ p.student_code }})</td></tr>
+    <tr><td class="muted">For</td><td>{{ p.description }} · {{ p.period_label }}</td></tr>
+    <tr><td class="muted">Date</td><td>{{ p.paid_on|dfmt }}</td></tr>
+    <tr><td class="muted">Method</td><td>{{ methods.get(p.method, p.method) }}{% if p.reference %} · {{ p.reference }}{% endif %}</td></tr>
+    {% if p.reason %}<tr><td class="muted">Reason</td><td>{{ p.reason }}</td></tr>{% endif %}
+    <tr><td class="muted">Fee amount</td><td>{{ p.amount_due|money }}</td></tr>
+    <tr><td class="muted">{{ 'Refunded' if p.kind == 'refund' else 'Amount received' }}</td><td class="total">{{ (p.amount|abs)|money }}</td></tr>
+    <tr><td class="muted">Balance on this fee</td><td>{{ p.balance_now|money }}</td></tr>
+    <tr><td class="muted">Recorded by</td><td>{{ p.recorded_by_name or '—' }}</td></tr></tbody></table>
+</article>
+{% endblock %}

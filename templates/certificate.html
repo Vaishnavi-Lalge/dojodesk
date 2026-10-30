@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Certificate – {{ p.full_name }}{% endblock %}
+{% block content %}
+<div class="page-head no-print"><div><h1>Promotion certificate</h1></div><div class="actions"><button class="btn btn-primary" type="button" data-print><i class="fa-solid fa-print" aria-hidden="true"></i> Print</button><a class="btn btn-secondary" href="{{ url_for('students.detail', student_id=p.student_id) }}">Back to student</a></div></div>
+<article class="certificate">
+  <p class="muted">{{ dojo_name }}</p><h1>Certificate of Promotion</h1>
+  <div class="stripe" style="background:{{ p.color_hex }}" role="img" aria-label="{{ p.to_belt }} stripe"></div>
+  <p>This certifies that</p><p class="name">{{ p.full_name }}</p><p class="muted">Student ID {{ p.student_code }}</p>
+  <p>has passed the grading and is promoted from <strong>{{ p.from_belt }}</strong> to</p><p style="font-size:1.6rem;font-weight:700;margin:6px 0">{{ p.to_belt }}</p>
+  <p>on {{ p.promoted_on.strftime('%d %B %Y') }}</p>{% if p.remarks %}<p class="muted">{{ p.remarks }}</p>{% endif %}
+  <div class="sign"><div>{{ p.approver }}<br><span class="muted">Approving instructor</span></div><div>Certificate no. CERT-{{ '%05d'|format(p.id) }}</div></div>
+</article>
+{% endblock %}

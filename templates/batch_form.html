@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field with context %}
+{% block title %}{{ 'Edit batch' if batch else 'New batch' }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ 'Edit ' ~ batch.name if batch else 'New batch' }}</h1>{% if batch %}<p>{{ batch.batch_code }}</p>{% endif %}</div></div>
+<form class="card" method="post" novalidate>
+  {{ csrf() }}
+  <div class="form-grid">
+    {{ field('name', 'Batch name', form, errors, required=True, hint='For example: Kids Evening') }}
+    {{ field('instructor', 'Instructor', form, errors, required=True) }}
+    <div class="field full {{ 'has-error' if errors.get('training_days') }}"><span class="label-text" id="days-label">Training days <span class="req" aria-hidden="true">*</span></span>
+      <div class="check-row" role="group" aria-labelledby="days-label">{% for d in days %}<label class="check"><input type="checkbox" name="training_days" value="{{ d }}" {{ 'checked' if d in form.training_days }}> {{ d }}</label>{% endfor %}</div>
+      {% if errors.get('training_days') %}<span class="error" role="alert">{{ errors['training_days'] }}</span>{% endif %}</div>
+    {{ field('start_time', 'Start time', form, errors, type='time', required=True) }}
+    {{ field('end_time', 'End time', form, errors, type='time', required=True) }}
+    {{ field('capacity', 'Maximum students', form, errors, type='number', required=True, attrs='min="1" max="500"') }}
+    <div class="field"><span class="label-text">Status</span><label class="check"><input type="checkbox" name="is_active" {{ 'checked' if form.is_active }}> Active (can be enrolled and marked)</label></div>
+  </div>
+  <div class="form-actions"><button class="btn btn-primary" type="submit">{{ 'Save changes' if batch else 'Create batch' }}</button>
+    <a class="btn btn-secondary" href="{{ url_for('batches.detail', batch_id=batch.id) if batch else url_for('batches.index') }}">Cancel</a></div>
+</form>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, pager, empty with context %}
+{% block title %}Payments{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Payments</h1><p>Every payment and refund, newest first.</p></div><div class="actions"><a class="btn btn-secondary" href="{{ url_for('fees.index') }}">Back to fees</a></div></div>
+<form class="filters card" method="get" role="search">
+  <div class="field grow"><label for="q">Search</label><input id="q" name="q" type="search" value="{{ request.args.get('q','') }}" placeholder="Receipt no., student name or ID"></div>
+  <div class="field"><label for="method">Method</label><select id="method" name="method"><option value="">Any</option>{% for v, t in methods %}<option value="{{ v }}" {{ 'selected' if request.args.get('method') == v }}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="kind">Type</label><select id="kind" name="kind"><option value="">Payments and refunds</option><option value="payment" {{ 'selected' if request.args.get('kind') == 'payment' }}>Payments</option><option value="refund" {{ 'selected' if request.args.get('kind') == 'refund' }}>Refunds</option></select></div>
+  <div class="field"><label for="from">From</label><input id="from" name="from" type="date" value="{{ request.args.get('from','') }}"></div>
+  <div class="field"><label for="to">To</label><input id="to" name="to" type="date" value="{{ request.args.get('to','') }}"></div>
+  <div class="actions"><button class="btn btn-primary" type="submit">Apply</button></div></form>
+{% if page.rows %}<div class="table-wrap"><table class="responsive"><thead><tr><th scope="col">Receipt</th><th scope="col">Date</th><th scope="col">Student</th><th scope="col">Fee</th><th scope="col">Method</th><th scope="col" class="num">Amount</th></tr></thead><tbody>
+  {% for p in page.rows %}<tr><td data-label="Receipt"><a href="{{ url_for('fees.receipt', payment_id=p.id) }}">{{ p.receipt_no }}</a> {{ badge(p.kind) }}</td><td data-label="Date" class="nowrap">{{ p.paid_on|dfmt }}</td>
+    <td data-label="Student"><a href="{{ url_for('students.detail', student_id=p.student_id) }}">{{ p.full_name }}</a></td><td data-label="Fee"><a href="{{ url_for('fees.detail', fee_id=p.fee_id) }}">{{ p.description }}</a></td>
+    <td data-label="Method">{{ p.method|replace('_',' ')|capitalize }}</td><td data-label="Amount" class="num">{{ p.amount|money }}</td></tr>{% endfor %}</tbody></table></div>
+{{ pager(page, 'payments') }}
+{% else %}<div class="card">{{ empty('fa-receipt', 'No payments found', 'Payments appear here once recorded against a fee.') }}</div>{% endif %}
+{% endblock %}

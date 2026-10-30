@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, belt, avatar, confirm_button, empty with context %}
+{% block title %}{{ s.full_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="person" style="gap:16px">{{ avatar(s.id, s.full_name, s.has_photo, large=True) }}
+    <div><h1>{{ s.full_name }}</h1><p>{{ s.student_code }} · {{ belt(s.belt_name, s.color_hex) }} · {{ badge(s.status) }}</p></div></div>
+  <div class="actions">
+    <a class="btn btn-secondary" href="{{ url_for('students.edit', student_id=s.id) }}"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
+    {% if s.status == 'active' %}
+      <a class="btn btn-secondary" href="{{ url_for('exams.create', student_id=s.id) }}">Schedule exam</a>
+      <a class="btn btn-secondary" href="{{ url_for('fees.create', student_id=s.id) }}">Add fee</a>
+      {{ confirm_button(url_for('students.set_status', student_id=s.id), 'Deactivate', 'Deactivate ' ~ s.full_name ~ '? They will be removed from their batches. You can reactivate them later.', 'Deactivate', {'status': 'inactive'}, 'btn btn-secondary') }}
+      {% if is_admin() %}{{ confirm_button(url_for('students.set_status', student_id=s.id), 'Archive', 'Archive ' ~ s.full_name ~ '? They will be hidden from normal lists and removed from their batches. Records are kept.', 'Archive', {'status': 'archived'}, 'btn btn-danger') }}{% endif %}
+    {% else %}
+      {{ confirm_button(url_for('students.set_status', student_id=s.id), 'Reactivate', 'Reactivate ' ~ s.full_name ~ '?', 'Reactivate', {'status': 'active'}, 'btn btn-primary') }}
+    {% endif %}
+  </div></div>
+
+<div class="grid g2 stack">
+  <div class="card"><h2>Details</h2>
+    <dl class="kv">
+      <dt>Date of birth</dt><dd>{{ s.dob|dfmt }} ({{ s.dob|age }} years)</dd>
+      <dt>Gender</dt><dd>{{ s.gender|capitalize if s.gender else '—' }}</dd>
+      <dt>Phone</dt><dd>{{ s.phone }}</dd>
+      {% if is_minor or s.guardian_name %}<dt>Parent / guardian</dt><dd>{{ s.guardian_name or '—' }}{% if s.guardian_phone %} · {{ s.guardian_phone }}{% endif %}</dd>{% endif %}
+      <dt>Email</dt><dd>{{ s.email or '—' }}</dd>
+      <dt>Address</dt><dd>{{ s.address or '—' }}</dd>
+      <dt>Joined</dt><dd>{{ s.joining_date|dfmt }}</dd>
+      <dt>Batches</dt><dd>{% for b in batches %}<a href="{{ url_for('batches.detail', batch_id=b.id) }}">{{ b.name }}</a>{{ ', ' if not loop.last }}{% else %}Not in a batch{% endfor %}</dd>
+    </dl></div>
+  <div class="card"><h2>Attendance</h2>
+    <p class="stat" style="margin:0 0 10px"><span class="v">{{ att.pct if att.pct is not none else '—' }}{% if att.pct is not none %}%{% endif %}</span><span class="s">{{ att.present }} present · {{ att.late }} late · {{ att.absent }} absent · {{ att.excused }} excused</span></p>
+    {% if history %}<ul class="list">{% for h in history[:6] %}<li><span>{{ h.session_date|dfmt }} <span class="sub">{{ h.batch_name }}</span></span>{{ badge(h.status) }}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">No attendance recorded yet.</p>{% endif %}</div>
+</div>
+
+<div class="grid g2 stack">
+  <div class="card"><div class="card-head"><h2>Fees</h2><span class="muted">Outstanding {{ outstanding|money }}</span></div>
+    {% if fees %}<ul class="list">{% for f in fees %}<li><span><a href="{{ url_for('fees.detail', fee_id=f.id) }}">{{ f.description }}</a><br><span class="sub">due {{ f.due_date|dfmt }} · {{ f.amount_due|money }}</span></span>{{ badge(f.status) }}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">No fees recorded.</p>{% endif %}</div>
+  <div class="card"><h2>Belt history</h2>
+    {% if promotions %}<ul class="list">{% for p in promotions %}<li><span>{{ p.from_belt }} → <strong>{{ p.to_belt }}</strong>{% if p.remarks %}<br><span class="sub">{{ p.remarks }}</span>{% endif %}</span><span class="nowrap"><a href="{{ url_for('exams.certificate', promotion_id=p.id) }}">Certificate</a><br><span class="sub">{{ p.promoted_on|dfmt }}</span></span></li>{% endfor %}</ul>
+    {% else %}<p class="muted">No promotions yet.</p>{% endif %}
+    {% if exams %}<h3 style="margin-top:14px">Examinations</h3><ul class="list">{% for x in exams %}<li><a href="{{ url_for('exams.detail', exam_id=x.id) }}">{{ x.target_belt }} · {{ x.exam_date|dfmt }}</a>{{ badge(x.result) }}</li>{% endfor %}</ul>{% endif %}</div>
+</div>
+{% endblock %}

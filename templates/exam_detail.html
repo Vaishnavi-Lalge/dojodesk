@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, badge, belt with context %}
+{% block title %}Examination – {{ x.full_name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ x.full_name }} · {{ x.target_belt }}</h1><p>{{ x.exam_date|dfmt }} · {{ x.from_belt }} → {{ x.target_belt }} · {{ badge(x.result) }}</p></div>
+  <div class="actions"><a class="btn btn-secondary" href="{{ url_for('students.detail', student_id=x.student_id) }}">Student profile</a><a class="btn btn-secondary" href="{{ url_for('exams.index') }}">All exams</a></div></div>
+<div class="grid g2 stack">
+  <div class="card"><h2>Details</h2><dl class="kv">
+    <dt>Eligible</dt><dd>{{ 'Yes' if x.eligible else 'Not marked eligible' }}{% if x.eligibility_notes %} – {{ x.eligibility_notes }}{% endif %}</dd>
+    <dt>Exam fee</dt><dd>{% if x.exam_fee > 0 %}{{ x.exam_fee|money }}{% if x.fee_id %} · <a href="{{ url_for('fees.detail', fee_id=x.fee_id) }}">{{ badge(x.fee_status) }}</a>{% endif %}{% else %}None{% endif %}</dd>
+    <dt>Score</dt><dd>{{ x.score if x.score is not none else '—' }}</dd><dt>Instructor remarks</dt><dd>{{ x.remarks or '—' }}</dd></dl></div>
+  {% if elig %}<div class="card"><h2>Eligibility guide for {{ elig.belt.name }}</h2><ul class="check-list">{% for c in elig.checks %}<li><i class="fa-solid {{ 'fa-circle-check yes' if c.ok else 'fa-circle-xmark no' }}" aria-hidden="true"></i><span><strong class="sr-only">{{ 'Met: ' if c.ok else 'Not met: ' }}</strong>{{ c.label }}<br><span class="muted">{{ c.detail }}</span></span></li>{% endfor %}</ul></div>{% endif %}
+</div>
+<div class="grid g2">
+  <form class="card" method="post" action="{{ url_for('exams.set_result', exam_id=x.id) }}"><h2>Result</h2>
+    {{ csrf() }}
+    {% if promo %}<p class="notice ok">Promotion approved, so this result is locked.</p>{% endif %}
+    <fieldset style="border:0;padding:0;margin:0" {{ 'disabled' if promo }}><div class="stack" style="margin:0">
+      <div class="field"><label for="result">Result</label><select id="result" name="result">{% for r in ['pending','passed','failed'] %}<option value="{{ r }}" {{ 'selected' if x.result == r }}>{{ r|capitalize }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="score">Score (0–100, optional)</label><input id="score" name="score" type="number" step="0.01" min="0" max="100" value="{{ x.score if x.score is not none else '' }}"></div>
+      <div class="field"><label for="remarks">Instructor remarks</label><textarea id="remarks" name="remarks" maxlength="500">{{ x.remarks or '' }}</textarea></div>
+      <button class="btn btn-primary" type="submit">Save result</button></div></fieldset></form>
+  <div class="card"><h2>Promotion</h2>
+    {% if promo %}<p class="notice ok">Promoted to <strong>{{ x.target_belt }}</strong> on {{ promo.promoted_on|dfmt }}, approved by {{ promo.approver }}.</p>
+      {% if promo.remarks %}<p>{{ promo.remarks }}</p>{% endif %}<a class="btn btn-primary" href="{{ url_for('exams.certificate', promotion_id=promo.id) }}"><i class="fa-solid fa-certificate" aria-hidden="true"></i> View certificate</a>
+    {% elif x.result == 'passed' %}
+      <p class="muted">Passing does not change the belt. An instructor must approve the promotion.</p>
+      {% if x.fee_status and x.fee_status != 'paid' %}<p class="notice warn">The exam fee is not fully paid yet.</p>{% endif %}
+      <form method="post" action="{{ url_for('exams.promote', exam_id=x.id) }}" data-confirm="Approve the promotion of {{ x.full_name }} to {{ x.target_belt }}? This changes their belt." data-confirm-label="Approve promotion">
+        {{ csrf() }}<div class="stack" style="margin:0">
+        <div class="field"><label for="promoted_on">Promotion date</label><input id="promoted_on" name="promoted_on" type="date" value="{{ today_iso }}" max="{{ today_iso }}" required></div>
+        <div class="field"><label for="premarks">Remarks (optional)</label><textarea id="premarks" name="remarks" maxlength="500"></textarea></div>
+        {% if not x.eligible %}<label class="check"><input type="checkbox" name="confirm_ineligible"> This exam wasn't marked eligible – I still approve the promotion</label>{% endif %}
+        <button class="btn btn-primary" type="submit">Approve promotion</button></div></form>
+    {% else %}<p class="muted">Record a passing result first. Failed or pending exams can't be promoted.</p>{% endif %}</div>
+</div>
+{% endblock %}

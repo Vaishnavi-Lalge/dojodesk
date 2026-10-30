@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field, select with context %}
+{% block title %}Add fee{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Add fee</h1><p>Create a fee for one student, or for every active student in a batch.</p></div></div>
+<form class="card" method="post" novalidate>
+  {{ csrf() }}
+  <div class="form-grid">
+    {{ select('target', 'Charge', [('student','One student'),('batch','Everyone in a batch')], form.get('target'), errors) }}
+    <div class="field" data-target="student">{{ select('student_id', 'Student', student_opts, form.get('student_id'), errors, blank='Choose a student') }}</div>
+    <div class="field" data-target="batch" hidden>{{ select('batch_id', 'Batch', batches|pairs, form.get('batch_id'), errors, blank='Choose a batch') }}</div>
+    <div class="field"><label for="plan_id">Fee plan (optional)</label>
+      <select id="plan_id" name="plan_id"><option value="">No plan – custom fee</option>{% for p in plans %}<option value="{{ p.id }}" data-amount="{{ p.amount }}" {{ 'selected' if form.get('plan_id')|string == p.id|string }}>{{ p.name }} – {{ p.amount|money }} ({{ p.period }})</option>{% endfor %}</select>
+      <span class="hint">A plan fills the amount and prevents charging the same period twice.</span></div>
+    {{ field('description', 'Description', form, errors, hint='Leave blank to use the plan name.') }}
+    {{ field('period_label', 'Period', form, errors, required=True, hint='For example 2026-11 or Term 1 2026') }}
+    {{ field('amount', 'Amount', form, errors, type='number', hint='Leave blank to use the plan amount.', attrs='step="0.01" min="0.01" inputmode="decimal"') }}
+    {{ field('due_date', 'Due date', form, errors, type='date', required=True) }}
+  </div>
+  <div class="form-actions"><button class="btn btn-primary" type="submit">Create fee</button><a class="btn btn-secondary" href="{{ url_for('fees.index') }}">Cancel</a></div>
+</form>
+{% endblock %}

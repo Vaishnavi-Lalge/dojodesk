@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, pager, empty with context %}
+{% block title %}Fees{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Fees</h1><p>What is due, what has been paid, and what is outstanding.</p></div>
+  <div class="actions"><a class="btn btn-secondary" href="{{ url_for('fees.payments') }}">All payments</a>
+    {% if is_admin() %}<a class="btn btn-secondary" href="{{ url_for('fees.plans') }}">Fee plans</a>{% endif %}
+    <a class="btn btn-primary" href="{{ url_for('fees.create') }}"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add fee</a></div></div>
+<section class="grid g3 stack" aria-label="Totals">
+  <div class="card stat"><span class="k">Collected this month</span><span class="v">{{ totals.month_net|money }}</span></div>
+  <div class="card stat"><span class="k">Pending</span><span class="v">{{ totals.pending|money }}</span></div>
+  <div class="card stat"><span class="k">Overdue</span><span class="v" style="color:var(--bad)">{{ totals.overdue|money }}</span></div>
+</section>
+<form class="filters card" method="get" role="search">
+  <div class="field grow"><label for="q">Student</label><input id="q" name="q" type="search" value="{{ request.args.get('q','') }}" placeholder="Name or student ID"></div>
+  <div class="field"><label for="status">Status</label><select id="status" name="status"><option value="">Any status</option>{% for s in statuses %}<option value="{{ s }}" {{ 'selected' if request.args.get('status') == s }}>{{ {'partial':'Partly paid'}.get(s, s|capitalize) }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="from">Due from</label><input id="from" name="from" type="date" value="{{ request.args.get('from','') }}"></div>
+  <div class="field"><label for="to">Due to</label><input id="to" name="to" type="date" value="{{ request.args.get('to','') }}"></div>
+  <div class="actions"><button class="btn btn-primary" type="submit">Apply</button><a class="btn btn-secondary" href="{{ url_for('fees.index') }}">Clear</a></div>
+</form>
+{% if page.rows %}<div class="table-wrap"><table class="responsive"><thead><tr><th scope="col">Student</th><th scope="col">Fee</th><th scope="col">Due</th><th scope="col" class="num">Amount</th><th scope="col" class="num">Paid</th><th scope="col" class="num">Balance</th><th scope="col">Status</th></tr></thead>
+  <tbody>{% for f in page.rows %}<tr>
+    <td data-label="Student"><a href="{{ url_for('students.detail', student_id=f.student_id) }}">{{ f.full_name }}</a></td>
+    <td data-label="Fee"><a href="{{ url_for('fees.detail', fee_id=f.id) }}">{{ f.description }}</a></td>
+    <td data-label="Due" class="nowrap">{{ f.due_date|dfmt }}</td><td data-label="Amount" class="num">{{ f.amount_due|money }}</td>
+    <td data-label="Paid" class="num">{{ f.amount_paid|money }}</td><td data-label="Balance" class="num">{{ f.balance|money }}</td><td data-label="Status">{{ badge(f.status) }}</td></tr>{% endfor %}</tbody></table></div>
+{{ pager(page, 'fee records') }}
+{% else %}<div class="card">{{ empty('fa-indian-rupee-sign', 'No fee records found', 'Add a fee for a student or a whole batch to start tracking payments.', url_for('fees.create'), 'Add fee') }}</div>{% endif %}
+{% endblock %}

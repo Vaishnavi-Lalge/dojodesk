@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field, select with context %}
+{% block title %}{{ 'Edit ' ~ student.full_name if student else 'Add student' }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ 'Edit student' if student else 'Add student' }}</h1>
+  <p>{% if student %}Student ID {{ student.student_code }}{% else %}A student ID is created automatically when you save.{% endif %} Fields marked <span class="req">*</span> are required.</p></div></div>
+<form class="card" method="post" enctype="multipart/form-data" novalidate>
+  {{ csrf() }}
+  <div class="form-grid">
+    {{ field('full_name', 'Full name', form, errors, required=True, autocomplete='name') }}
+    {{ field('dob', 'Date of birth', form, errors, type='date', required=True, autocomplete='bday') }}
+    {{ select('gender', 'Gender', [('male','Male'),('female','Female'),('other','Other')], form.get('gender'), errors, blank='Prefer not to say') }}
+    {{ field('phone', 'Phone number', form, errors, type='tel', required=True, autocomplete='tel') }}
+    {{ field('guardian_name', 'Parent or guardian name', form, errors, hint='Required for students under 18.') }}
+    {{ field('guardian_phone', 'Parent or guardian phone', form, errors, type='tel', hint='Required for students under 18.') }}
+    {{ field('email', 'Email address', form, errors, type='email', autocomplete='email') }}
+    {{ field('joining_date', 'Joining date', form, errors, type='date', required=True) }}
+    {{ field('address', 'Residential address', form, errors, type='textarea', full=True) }}
+    {% if not student %}
+    {{ select('belt_id', 'Starting belt', belts|pairs, form.get('belt_id'), errors, required=True) }}
+    {{ select('batch_id', 'Batch (optional)', batches|pairs, form.get('batch_id'), errors, blank='No batch yet') }}
+    {% if is_admin() %}<div class="field full"><label class="check"><input type="checkbox" name="override" {{ 'checked' if form.get('override') }}> Allow this enrolment even if the batch is full (administrator override)</label></div>{% endif %}
+    {% else %}
+    <div class="field"><span class="label-text">Current belt</span><span class="muted">{% for b in belts if b.id == student.current_belt_id %}{{ b.name }}{% endfor %} – belts change only through an approved promotion.</span></div>
+    {% endif %}
+    <div class="field full {{ 'has-error' if errors.get('photo') }}"><label for="photo">Profile photo (optional)</label>
+      <input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp">
+      <span class="hint">JPG, PNG or WebP, up to 2 MB. It is resized to 400 px.</span>
+      {% if errors.get('photo') %}<span class="error" role="alert">{{ errors['photo'] }}</span>{% endif %}
+      {% if student and student.has_photo %}<label class="check"><input type="checkbox" name="remove_photo"> Remove the current photo</label>{% endif %}</div>
+  </div>
+  <div class="form-actions"><button class="btn btn-primary" type="submit">{{ 'Save changes' if student else 'Add student' }}</button>
+    <a class="btn btn-secondary" href="{{ url_for('students.detail', student_id=student.id) if student else url_for('students.index') }}">Cancel</a></div>
+</form>
+{% endblock %}

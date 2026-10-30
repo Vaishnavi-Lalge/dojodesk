@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, pager, empty with context %}
+{% block title %}Attendance records{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Attendance records</h1><p>Search every marked session.</p></div><div class="actions"><a class="btn btn-secondary" href="{{ url_for('attendance.register') }}">Back to register</a></div></div>
+<form class="filters card" method="get" role="search">
+  <div class="field grow"><label for="q">Student</label><input id="q" name="q" type="search" value="{{ request.args.get('q','') }}" placeholder="Name or student ID"></div>
+  <div class="field"><label for="batch">Batch</label><select id="batch" name="batch"><option value="">All batches</option>{% for b in batches %}<option value="{{ b.id }}" {{ 'selected' if request.args.get('batch') == b.id|string }}>{{ b.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="status">Status</label><select id="status" name="status"><option value="">Any status</option>{% for s in statuses %}<option value="{{ s }}" {{ 'selected' if request.args.get('status') == s }}>{{ s|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="from">From</label><input id="from" name="from" type="date" value="{{ d_from.isoformat() }}"></div>
+  <div class="field"><label for="to">To</label><input id="to" name="to" type="date" value="{{ d_to.isoformat() }}"></div>
+  <div class="actions"><button class="btn btn-primary" type="submit">Apply</button></div>
+</form>
+{% if page.rows %}<div class="table-wrap"><table class="responsive"><thead><tr><th scope="col">Date</th><th scope="col">Student</th><th scope="col">Batch</th><th scope="col">Status</th></tr></thead>
+  <tbody>{% for r in page.rows %}<tr><td data-label="Date" class="nowrap">{{ r.session_date|dfmt }}</td><td data-label="Student"><a href="{{ url_for('students.detail', student_id=r.student_id) }}">{{ r.full_name }}</a> <span class="muted">{{ r.student_code }}</span></td><td data-label="Batch">{{ r.batch_name }}</td><td data-label="Status">{{ badge(r.status) }}</td></tr>{% endfor %}</tbody></table></div>
+{{ pager(page, 'records') }}
+{% else %}<div class="card">{{ empty('fa-clipboard-check', 'No attendance records found', 'Widen the date range or clear the filters.') }}</div>{% endif %}
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty with context %}
+{% block title %}Batches{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Batches</h1><p>Training groups, their schedule and how full they are.</p></div>
+  <div class="actions"><a class="btn btn-primary" href="{{ url_for('batches.create') }}"><i class="fa-solid fa-plus" aria-hidden="true"></i> New batch</a></div></div>
+<form class="filters" method="get"><div class="field" style="max-width:200px"><label for="show">Show</label>
+  <select id="show" name="show" data-autosubmit>{% for v, t in [('active','Active batches'),('inactive','Inactive batches'),('all','All batches')] %}<option value="{{ v }}" {{ 'selected' if show == v }}>{{ t }}</option>{% endfor %}</select></div></form>
+{% if batches %}
+<div class="table-wrap"><table class="responsive">
+  <thead><tr><th scope="col">Batch</th><th scope="col">Instructor</th><th scope="col">Days</th><th scope="col">Time</th><th scope="col" class="num">Enrolled</th><th scope="col">Status</th></tr></thead>
+  <tbody>{% for b in batches %}<tr>
+    <td data-label="Batch"><a href="{{ url_for('batches.detail', batch_id=b.id) }}"><strong>{{ b.name }}</strong></a><br><span class="muted">{{ b.batch_code }}</span></td>
+    <td data-label="Instructor">{{ b.instructor }}</td>
+    <td data-label="Days">{{ b.training_days|join(', ') }}</td>
+    <td data-label="Time" class="nowrap">{{ b.start_time|tfmt }} – {{ b.end_time|tfmt }}</td>
+    <td data-label="Enrolled" class="num">{{ b.enrolled }} / {{ b.capacity }}{% if b.enrolled >= b.capacity %} <span class="badge pending">Full</span>{% endif %}</td>
+    <td data-label="Status">{{ badge('active' if b.is_active else 'inactive') }}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}<div class="card">{{ empty('fa-people-group', 'No batches yet', 'Create a batch for each class group, then enrol students and take attendance.', url_for('batches.create'), 'Create a batch') }}</div>{% endif %}
+{% endblock %}

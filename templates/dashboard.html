@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty with context %}
+{% block title %}Dashboard{% endblock %}
+{% block head %}<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer crossorigin="anonymous" referrerpolicy="no-referrer"></script>{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Dashboard</h1><p>{{ today().strftime('%A, %d %B %Y') }}</p></div>
+  <div class="actions"><a class="btn btn-primary" href="{{ url_for('students.create') }}"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Add student</a>
+  <a class="btn btn-secondary" href="{{ url_for('attendance.register') }}">Take attendance</a></div></div>
+
+<section class="grid g4 stack" aria-label="Key figures">
+  <div class="card stat"><span class="k">Registered students</span><span class="v">{{ counts.active + counts.inactive }}</span><span class="s">{{ counts.active }} active · {{ counts.inactive }} inactive</span></div>
+  <div class="card stat"><span class="k">Today's attendance</span>
+    <span class="v">{% if att.marked %}{{ att.attended }}{% else %}—{% endif %}</span>
+    <span class="s">{% if att.marked %}{{ '%g'|format(att.pct if att.pct is not none else 0) }}% of {{ att.marked }} marked{% else %}Nothing marked yet today{% endif %}</span></div>
+  <div class="card stat"><span class="k">Collected this month</span><span class="v">{{ fees.collected|money }}</span><span class="s">Net of refunds</span></div>
+  <div class="card stat"><span class="k">Fees to collect</span><span class="v">{{ (fees.pending_amount + fees.overdue_amount)|money }}</span>
+    <span class="s">{{ fees.pending_amount|money }} pending ({{ fees.pending_count }}) · <a href="{{ url_for('fees.index', status='overdue') }}">{{ fees.overdue_amount|money }} overdue ({{ fees.overdue_count }})</a></span></div>
+</section>
+
+<section class="grid g2 stack" aria-label="Charts">
+  <div class="card"><h2>Fee collection, last 6 months</h2><div class="chart-box"><canvas id="chart-fees" role="img" aria-label="Bar chart of monthly fee collection"></canvas></div></div>
+  <div class="card"><h2>Attendance, last 30 days</h2><div class="chart-box"><canvas id="chart-attendance" role="img" aria-label="Line chart of daily attendance percentage"></canvas></div></div>
+  <div class="card"><h2>Students enrolled over time</h2><div class="chart-box"><canvas id="chart-enrollment" role="img" aria-label="Line chart of total students enrolled by month"></canvas></div></div>
+  <div class="card"><h2>Active students by belt</h2><div class="chart-box"><canvas id="chart-belts" role="img" aria-label="Doughnut chart of active students by belt"></canvas></div></div>
+</section>
+<script type="application/json" id="chart-data" data-currency="{{ config.CURRENCY_SYMBOL }}">{{ charts|tojson }}</script>
+
+<section class="grid g3" aria-label="Activity">
+  <div class="card"><div class="card-head"><h2>Upcoming examinations</h2><a href="{{ url_for('exams.index') }}">All</a></div>
+    {% if exams %}<ul class="list">{% for x in exams %}<li><span><a href="{{ url_for('exams.detail', exam_id=x.id) }}">{{ x.full_name }}</a><br><span class="sub">for {{ x.target_belt }}</span></span><span class="nowrap">{{ x.exam_date|dfmt }}</span></li>{% endfor %}</ul>
+    {% else %}<p class="muted">No examinations scheduled. <a href="{{ url_for('exams.create') }}">Schedule one</a>.</p>{% endif %}</div>
+  <div class="card"><div class="card-head"><h2>Recent registrations</h2><a href="{{ url_for('students.index') }}">All</a></div>
+    {% if recent %}<ul class="list">{% for s in recent %}<li><span><a href="{{ url_for('students.detail', student_id=s.id) }}">{{ s.full_name }}</a><br><span class="sub">{{ s.belt_name }}</span></span><span class="nowrap">{{ s.created_at.strftime('%d %b') }}</span></li>{% endfor %}</ul>
+    {% else %}<p class="muted">No students yet. <a href="{{ url_for('students.create') }}">Add the first one</a>.</p>{% endif %}</div>
+  <div class="card"><h2>Birthdays in the next 30 days</h2>
+    {% if birthdays %}<ul class="list">{% for b in birthdays %}<li><span><a href="{{ url_for('students.detail', student_id=b.id) }}">{{ b.full_name }}</a><br><span class="sub">turns {{ b.turning }}</span></span><span class="nowrap">{{ 'Today' if b.days == 0 else b.date.strftime('%d %b') }}</span></li>{% endfor %}</ul>
+    {% else %}<p class="muted">No birthdays coming up.</p>{% endif %}</div>
+  <div class="card" style="grid-column:1/-1"><div class="card-head"><h2>Recent belt promotions</h2><a href="{{ url_for('reports.view', key='promotions') }}">History</a></div>
+    {% if promotions %}<ul class="list">{% for p in promotions %}<li><span><a href="{{ url_for('students.detail', student_id=p.student_id) }}">{{ p.full_name }}</a> <span class="sub">promoted to {{ p.to_belt }}</span></span><span class="nowrap"><a href="{{ url_for('exams.certificate', promotion_id=p.id) }}">Certificate</a> · {{ p.promoted_on|dfmt }}</span></li>{% endfor %}</ul>
+    {% else %}<p class="muted">No promotions approved yet.</p>{% endif %}</div>
+</section>
+{% endblock %}

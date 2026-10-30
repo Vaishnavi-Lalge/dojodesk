@@ -1,0 +1,67 @@
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+
+{% macro field(name, label, form, errors, type="text", required=False, hint=None, full=False, attrs="", autocomplete="off") %}
+<div class="field{{ ' full' if full }}{{ ' has-error' if errors.get(name) }}">
+  <label for="{{ name }}">{{ label }}{% if required %} <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span>{% endif %}</label>
+  {% if type == "textarea" %}
+  <textarea id="{{ name }}" name="{{ name }}" {{ attrs|safe }} {% if errors.get(name) %}aria-invalid="true" aria-describedby="{{ name }}-msg"{% endif %}>{{ form.get(name) or "" }}</textarea>
+  {% else %}
+  <input id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ form.get(name) if form.get(name) is not none else '' }}" autocomplete="{{ autocomplete }}" {{ 'required' if required }} {{ attrs|safe }} {% if errors.get(name) %}aria-invalid="true" aria-describedby="{{ name }}-msg"{% endif %}>
+  {% endif %}
+  {% if hint and not errors.get(name) %}<span class="hint" id="{{ name }}-msg">{{ hint }}</span>{% endif %}
+  {% if errors.get(name) %}<span class="error" id="{{ name }}-msg" role="alert">{{ errors[name] }}</span>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro select(name, label, options, selected, errors, required=False, blank=None, full=False, attrs="") %}
+<div class="field{{ ' full' if full }}{{ ' has-error' if errors.get(name) }}">
+  <label for="{{ name }}">{{ label }}{% if required %} <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span>{% endif %}</label>
+  <select id="{{ name }}" name="{{ name }}" {{ 'required' if required }} {{ attrs|safe }} {% if errors.get(name) %}aria-invalid="true" aria-describedby="{{ name }}-msg"{% endif %}>
+    {% if blank is not none %}<option value="">{{ blank }}</option>{% endif %}
+    {% for value, text in options %}<option value="{{ value }}" {{ 'selected' if selected|string == value|string }}>{{ text }}</option>{% endfor %}
+  </select>
+  {% if errors.get(name) %}<span class="error" id="{{ name }}-msg" role="alert">{{ errors[name] }}</span>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro badge(status, label=None) %}<span class="badge {{ status }}">{{ label or {'partial':'Partly paid'}.get(status, status|capitalize) }}</span>{% endmacro %}
+
+{% macro belt(name, color) %}<span class="belt"><i style="background:{{ color }}"></i>{{ name }}</span>{% endmacro %}
+
+{% macro avatar(student_id, name, has_photo, large=False) %}
+{% if has_photo %}<img class="avatar{{ ' lg' if large }}" src="{{ url_for('students.photo', student_id=student_id) }}" alt="" loading="lazy">
+{% else %}<span class="avatar{{ ' lg' if large }}" aria-hidden="true">{{ name[:1]|upper }}</span>{% endif %}
+{% endmacro %}
+
+{% macro sort_th(label, key, default="name") %}
+{% set cur = request.args.get('sort', default) %}{% set d = request.args.get('dir', 'asc') %}
+<th scope="col" aria-sort="{{ ('descending' if d == 'desc' else 'ascending') if cur == key else 'none' }}">
+  <a href="{{ url_with(sort=key, dir=('desc' if cur == key and d == 'asc' else 'asc'), page=None) }}">{{ label }}
+  {% if cur == key %}<i class="fa-solid fa-arrow-{{ 'down' if d == 'desc' else 'up' }}" aria-hidden="true"></i>{% endif %}</a>
+</th>
+{% endmacro %}
+
+{% macro pager(page, noun="records") %}
+<div class="pager">
+  <span>{% if page.total %}Showing {{ (page.page - 1) * page.per_page + 1 }}–{{ [page.page * page.per_page, page.total]|min }} of {{ page.total }} {{ noun }}{% else %}No {{ noun }}{% endif %}</span>
+  {% if page.pages > 1 %}
+  <nav aria-label="Pagination">
+    {% if page.page > 1 %}<a class="btn btn-secondary btn-sm" href="{{ url_with(page=page.page - 1) }}"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i> Previous</a>{% endif %}
+    <span class="btn btn-sm" aria-current="page">Page {{ page.page }} of {{ page.pages }}</span>
+    {% if page.page < page.pages %}<a class="btn btn-secondary btn-sm" href="{{ url_with(page=page.page + 1) }}">Next <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>{% endif %}
+  </nav>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro empty(icon, title, text, url=None, action=None) %}
+<div class="empty"><i class="fa-solid {{ icon }}" aria-hidden="true"></i><h3>{{ title }}</h3><p>{{ text }}</p>
+{% if url %}<a class="btn btn-primary" href="{{ url }}">{{ action }}</a>{% endif %}</div>
+{% endmacro %}
+
+{% macro confirm_button(url, label, question, confirm_label, fields={}, class="btn btn-danger btn-sm") %}
+<form method="post" action="{{ url }}" data-confirm="{{ question }}" data-confirm-label="{{ confirm_label }}" style="display:inline">
+  {{ csrf() }}{% for k, v in fields.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <button class="{{ class }}" type="submit">{{ label }}</button>
+</form>
+{% endmacro %}

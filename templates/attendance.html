@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, badge, belt, empty with context %}
+{% block title %}Attendance{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Attendance</h1><p>Pick a batch and a date, mark everyone, then save.</p></div>
+  <div class="actions"><a class="btn btn-secondary" href="{{ url_for('attendance.records') }}">Search records</a></div></div>
+<form class="filters card" method="get" aria-label="Choose batch and date">
+  <div class="field"><label for="batch">Batch</label><select id="batch" name="batch" data-autosubmit>{% for b in batches %}<option value="{{ b.id }}" {{ 'selected' if batch and batch.id == b.id }}>{{ b.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ session_date.isoformat() }}" max="{{ today().isoformat() }}" data-autosubmit></div>
+  <div class="actions"><button class="btn btn-secondary" type="submit">Show register</button><a class="btn btn-secondary" href="{{ url_for('attendance.register', batch=batch.id if batch else None) }}">Today</a></div>
+</form>
+{% if not batches %}<div class="card">{{ empty('fa-people-group', 'Create a batch first', 'Attendance is taken per batch.', url_for('batches.create'), 'Create a batch') }}</div>
+{% elif batch %}
+<div class="card">
+  <div class="card-head"><h2>{{ batch.name }} · {{ session_date.strftime('%A, %d %b %Y') }} {% if is_today %}<span class="badge today">Today</span>{% endif %}</h2>
+    <span class="muted">{{ marked }} of {{ roster|length }} marked{% if is_today and roster and marked == roster|length %} · <strong style="color:var(--ok)">complete</strong>{% endif %}</span></div>
+  {% if trains_today is false %}<p class="notice warn">This batch doesn't normally train on {{ session_date.strftime('%A') }}s. You can still record a make-up class.</p>{% endif %}
+  {% if future %}<p class="notice bad">This date is in the future, so attendance can't be saved yet.</p>{% endif %}
+  {% if locked %}<p class="notice warn">This session is more than a week old. Only an administrator can change it.</p>{% endif %}
+  {% if roster %}
+  <form method="post" action="{{ url_for('attendance.save') }}">
+    {{ csrf() }}<input type="hidden" name="batch_id" value="{{ batch.id }}"><input type="hidden" name="date" value="{{ session_date.isoformat() }}">
+    <div class="actions no-print" style="margin-bottom:12px"><button type="button" class="btn btn-secondary btn-sm" id="mark-all-present"><i class="fa-solid fa-check-double" aria-hidden="true"></i> Mark everyone present</button></div>
+    <div class="table-wrap"><table class="responsive"><thead><tr><th scope="col">Student</th><th scope="col">Belt</th><th scope="col">Status</th></tr></thead><tbody>
+      {% for r in roster %}<tr>
+        <td data-label="Student"><a href="{{ url_for('students.detail', student_id=r.id) }}">{{ r.full_name }}</a> <span class="muted">{{ r.student_code }}</span></td>
+        <td data-label="Belt">{{ belt(r.belt_name, r.color_hex) }}</td>
+        <td data-label="Status"><fieldset style="border:0;padding:0;margin:0" {{ 'disabled' if locked or future }}><legend class="sr-only">Attendance for {{ r.full_name }}</legend>
+          <div class="segmented">{% for st in statuses %}<label class="seg s-{{ st }}"><input type="radio" name="status_{{ r.id }}" value="{{ st }}" {{ 'checked' if r.status == st }}><span>{{ st|capitalize }}</span></label>{% endfor %}</div></fieldset></td>
+      </tr>{% endfor %}</tbody></table></div>
+    <div class="form-actions"><button class="btn btn-primary" type="submit" {{ 'disabled' if locked or future }}>Save attendance</button></div>
+  </form>
+  {% else %}{{ empty('fa-user-plus', 'No students to mark', 'Nobody active is enrolled in this batch for that date. Enrol students first.', url_for('batches.detail', batch_id=batch.id), 'Open batch') }}{% endif %}
+</div>
+{% endif %}
+{% endblock %}
