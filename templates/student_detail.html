@@ -44,4 +44,50 @@
     {% else %}<p class="muted">No promotions yet.</p>{% endif %}
     {% if exams %}<h3 style="margin-top:14px">Examinations</h3><ul class="list">{% for x in exams %}<li><a href="{{ url_for('exams.detail', exam_id=x.id) }}">{{ x.target_belt }} · {{ x.exam_date|dfmt }}</a>{{ badge(x.result) }}</li>{% endfor %}</ul>{% endif %}</div>
 </div>
+
+<div class="grid g2 stack">
+  <div class="card"><h2>Kata and kumite videos</h2>
+    {% if is_admin() %}
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('students.upload_media', student_id=s.id) }}" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label for="student-video">Video (MP4, M4V, or WebM; up to 100 MB)</label><input id="student-video" name="video" type="file" accept=".mp4,.m4v,.webm,video/mp4,video/webm"></div>
+      <div class="field"><label for="video-category">Video type</label><select id="video-category" name="category"><option value="kata">Kata</option><option value="kumite">Kumite</option></select></div>
+      <div class="field"><label for="student-photos">Photos (JPG, PNG, or WebP; up to 2 MB each)</label><input id="student-photos" name="photos" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple></div>
+      <button class="btn btn-primary" type="submit">Upload media</button>
+    </form>
+    {% endif %}
+    {% for category in ('kata', 'kumite') %}
+    <h3>{{ category|capitalize }}</h3>
+    {% set category_videos = videos|selectattr('category', 'equalto', category)|list %}
+    {% if category_videos %}<ul class="list">{% for video in category_videos %}<li><video controls preload="metadata" style="width:100%;max-height:300px" aria-label="{{ category|capitalize }} video {{ video.filename }}"><source src="{{ url_for('students.video', student_id=s.id, category=video.category, filename=video.filename) }}"></video><span>{{ video.filename }}</span></li>{% endfor %}</ul>
+    {% else %}<p class="muted">No {{ category }} videos uploaded.</p>{% endif %}
+    {% endfor %}
+    {% if photos %}<h3>Uploaded photos</h3><div class="grid g3">{% for photo in photos %}<img src="{{ url_for('students.media_photo', student_id=s.id, filename=photo) }}" alt="Student training photo" loading="lazy" style="width:100%;height:auto">{% endfor %}</div>{% endif %}
+  </div>
+  <div class="card"><h2>Parent accounts</h2>
+    {% if parent_accounts %}<ul class="list">{% for parent in parent_accounts %}<li><div>{{ parent.full_name }} <span class="sub">({{ parent.username }})</span>
+      {% if is_admin() %}<form method="post" action="{{ url_for('students.reset_parent_password', student_id=s.id, parent_id=parent.id) }}" class="row" style="margin-top:8px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="sr-only" for="reset-parent-{{ parent.id }}">New password for {{ parent.full_name }}</label>
+        <input id="reset-parent-{{ parent.id }}" name="password" type="password" placeholder="Set new password" autocomplete="new-password" required>
+        <button class="btn btn-secondary btn-sm" type="submit">Reset</button>
+      </form>{% endif %}</div>{{ badge('active' if parent.is_active else 'inactive') }}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">No parent accounts are linked.</p>{% endif %}
+    {% if is_admin() %}
+    <h3>Create a parent login</h3>
+    <form method="post" action="{{ url_for('students.create_parent_account', student_id=s.id) }}" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label for="parent-full-name">Parent name</label><input id="parent-full-name" name="full_name" required maxlength="120"></div>
+      <div class="field"><label for="parent-username">Username</label><input id="parent-username" name="username" required maxlength="80" autocomplete="off"></div>
+      <div class="field"><label for="parent-password">Initial password</label><input id="parent-password" name="password" type="password" required autocomplete="new-password"><span class="hint">At least 10 characters, upper and lower case, and a number.</span></div>
+      <button class="btn btn-primary" type="submit">Create parent account</button>
+    </form>
+    <h3>Link an existing parent login</h3>
+    <form method="post" action="{{ url_for('students.link_parent_account', student_id=s.id) }}" class="row">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="sr-only" for="existing-parent-username">Existing parent username</label><input id="existing-parent-username" name="username" placeholder="Parent username" required>
+      <button class="btn btn-secondary" type="submit">Link account</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
 {% endblock %}

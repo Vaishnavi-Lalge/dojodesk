@@ -13,12 +13,16 @@
 <a class="skip-link" href="#main">Skip to main content</a>
 <div id="loading-bar" aria-hidden="true"></div>
 {% block layout %}
-{% if current_user %}
+{% if current_user or parent_user %}
 {% set bp = request.blueprint %}{% set ep = request.endpoint or '' %}
 <div class="app">
   <aside class="sidebar" id="sidebar" aria-label="Main">
-    <a class="brand" href="{{ url_for('dashboard.index') }}"><span class="mark"><i class="fa-solid fa-hand-fist" aria-hidden="true"></i></span><span>DojoDesk<small>{{ dojo_name }}</small></span></a>
+    <a class="brand" href="{{ url_for('parents.index') if parent_user else url_for('dashboard.index') }}"><span class="mark"><i class="fa-solid fa-hand-fist" aria-hidden="true"></i></span><span>DojoDesk<small>{{ dojo_name }}</small></span></a>
     <nav class="nav" aria-label="Sections">
+      {% if parent_user %}
+      <a href="{{ url_for('parents.index') }}" {% if bp == 'parents' and ep == 'parents.index' %}aria-current="page"{% endif %}><i class="fa-solid fa-house" aria-hidden="true"></i>My students</a>
+      <a href="{{ url_for('syllabus.index') }}" {% if bp == 'syllabus' %}aria-current="page"{% endif %}><i class="fa-solid fa-book" aria-hidden="true"></i>Kata syllabus</a>
+      {% else %}
       <a href="{{ url_for('dashboard.index') }}" {% if bp == 'dashboard' %}aria-current="page"{% endif %}><i class="fa-solid fa-gauge-high" aria-hidden="true"></i>Dashboard</a>
       <a href="{{ url_for('students.index') }}" {% if bp == 'students' %}aria-current="page"{% endif %}><i class="fa-solid fa-user-group" aria-hidden="true"></i>Students</a>
       <a href="{{ url_for('attendance.register') }}" {% if bp == 'attendance' %}aria-current="page"{% endif %}><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>Attendance</a>
@@ -31,12 +35,14 @@
       <a href="{{ url_for('exams.belts') }}" {% if ep == 'exams.belts' %}aria-current="page"{% endif %}><i class="fa-solid fa-grip-lines" aria-hidden="true"></i>Belt system</a>
       <a href="{{ url_for('fees.plans') }}" {% if ep == 'fees.plans' %}aria-current="page"{% endif %}><i class="fa-solid fa-tags" aria-hidden="true"></i>Fee plans</a>
       {% endif %}
+      <a href="{{ url_for('syllabus.index') }}" {% if bp == 'syllabus' %}aria-current="page"{% endif %}><i class="fa-solid fa-book" aria-hidden="true"></i>Kata syllabus</a>
+      {% endif %}
     </nav>
     <div class="userbox">
-      <strong>{{ current_user.full_name }}</strong><span>{{ current_user.role|capitalize }}</span>
+      <strong>{{ (parent_user or current_user).full_name }}</strong><span>{{ 'Parent' if parent_user else current_user.role|capitalize }}</span>
       <div class="row">
-        <a href="{{ url_for('auth.change_password') }}"><i class="fa-solid fa-key" aria-hidden="true"></i> Password</a>
-        <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign out</button></form>
+        <a href="{{ url_for('parents.password') if parent_user else url_for('auth.change_password') }}"><i class="fa-solid fa-key" aria-hidden="true"></i> Password</a>
+        <form method="post" action="{{ url_for('parents.logout') if parent_user else url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign out</button></form>
       </div>
     </div>
   </aside>

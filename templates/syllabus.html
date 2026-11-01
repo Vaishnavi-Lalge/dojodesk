@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty with context %}
+{% block title %}Kata syllabus{% endblock %}
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Kata syllabus</h1><p>This syllabus is available to everyone; no sign-in is required.</p></div>
+  <a class="btn btn-secondary" href="{{ url_for('parents.login') }}">Parent sign in</a></div>
+{% if files %}
+  {% for file in files %}
+  <section class="card" style="margin-bottom:20px">
+    <div class="card-head"><div><h2>{{ file.title }}</h2><p class="muted">{{ file.filename }}</p></div>
+      <a class="btn btn-secondary" href="{{ url_for('syllabus.pdf', filename=file.filename) }}" target="_blank" rel="noopener">Open PDF</a>
+    </div>
+    <div class="syllabus-viewer" data-pdf-url="{{ url_for('syllabus.pdf', filename=file.filename) }}"
+         data-pdf-title="{{ file.title }}">
+      <p class="muted" role="status">Loading syllabus pages…</p>
+      <div class="syllabus-pages"></div>
+    </div>
+    <noscript><p>Enable JavaScript to view pages here, or <a href="{{ url_for('syllabus.pdf', filename=file.filename) }}">open the PDF</a>.</p></noscript>
+  </section>
+  {% endfor %}
+{% else %}
+{{ empty('fa-book', 'No syllabus PDFs yet', 'Add PDF files to the media/syllabus folder. Use one PDF per belt, named after the belt, or add a combined syllabus PDF.') }}
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/syllabus.js') }}" defer></script>{% endblock %}

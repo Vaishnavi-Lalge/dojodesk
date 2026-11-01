@@ -26,8 +26,11 @@ def _throttled(key):
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     global _dummy_hash
-    if session.get("uid") and request.method == "GET":
-        return redirect(url_for("dashboard.index"))
+    if request.method == "GET":
+        if session.get("parent_uid"):
+            return redirect(url_for("parents.index"))
+        if session.get("uid"):
+            return redirect(url_for("dashboard.index"))
     if request.method == "POST":
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""

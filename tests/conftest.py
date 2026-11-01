@@ -28,7 +28,7 @@ def _schema():
     with conn.cursor() as cur:
         cur.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
     conn.close()
-    assert db_config.run_migrations() == ["001_schema.sql", "002_seed_belts.sql"]
+    assert db_config.run_migrations() == ["001_schema.sql", "002_seed_belts.sql", "003_parent_portal.sql"]
 
 
 @pytest.fixture()
@@ -37,11 +37,13 @@ def app(_schema):
     from app import create_app
     from blueprints import auth
     auth._fails.clear()
+    from blueprints import parents
+    parents._fails.clear()
     application = create_app({"TESTING": True, "WTF_CSRF_ENABLED": False, "SECRET_KEY": "test-secret"})
     conn = db_config.connect()
     conn.autocommit = True
     with conn.cursor() as cur:
-        cur.execute("TRUNCATE admins, students, batches, batch_enrollments, attendance, fee_plans, student_fees, "
+        cur.execute("TRUNCATE admins, parent_accounts, students, batches, batch_enrollments, attendance, fee_plans, student_fees, "
                     "payments, examinations, belt_promotions, audit_logs, belt_ranks RESTART IDENTITY CASCADE")
         for seq in ("student_code_seq", "batch_code_seq", "receipt_seq"):
             cur.execute(f"ALTER SEQUENCE {seq} RESTART")

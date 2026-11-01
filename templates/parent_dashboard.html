@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty with context %}
+{% block title %}My students{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>My students</h1><p>Attendance, belt progress, examinations, and training videos.</p></div>
+  <a class="btn btn-secondary" href="{{ url_for('syllabus.index') }}">Kata syllabus</a></div>
+{% for s in students %}
+<section class="card" style="margin-bottom:20px">
+  <div class="card-head"><div><h2>{{ s.full_name }}</h2><p>{{ s.student_code }} · <span class="belt"><i style="background:{{ s.color_hex }}"></i>{{ s.belt_name }}</span></p></div>
+    <div class="stat"><span class="k">Attendance</span><span class="v">{{ s.attendance.pct if s.attendance.pct is not none else '—' }}{% if s.attendance.pct is not none %}%{% endif %}</span><span class="s">{{ s.attendance.total }} sessions recorded</span></div>
+  </div>
+  <div class="grid g2 stack">
+    <div><h3>Recent attendance</h3>
+      {% if s.history %}<ul class="list">{% for item in s.history %}<li><span>{{ item.session_date|dfmt }} <span class="sub">{{ item.batch_name }}</span></span>{{ badge(item.status) }}</li>{% endfor %}</ul>
+      {% else %}<p class="muted">No attendance recorded yet.</p>{% endif %}</div>
+    <div><h3>Examinations and belt progress</h3>
+      {% if s.promotions %}<ul class="list">{% for p in s.promotions %}<li><span>{{ p.from_belt }} → {{ p.to_belt }}{% if p.remarks %}<br><span class="sub">{{ p.remarks }}</span>{% endif %}</span><span>{{ p.promoted_on|dfmt }}</span></li>{% endfor %}</ul>{% endif %}
+      {% if s.exams %}<ul class="list">{% for exam in s.exams %}<li><span>{{ exam.target_belt }} · {{ exam.exam_date|dfmt }}{% if exam.score is not none %}<br><span class="sub">Score: {{ exam.score }}%</span>{% endif %}</span>{{ badge(exam.result) }}</li>{% endfor %}</ul>
+      {% elif not s.promotions %}<p class="muted">No examination results or promotions recorded yet.</p>{% endif %}</div>
+  </div>
+  <div><h3>Kata and kumite videos</h3>
+    {% if s.videos %}<div class="grid g2 stack">{% for video in s.videos %}
+      <div><h4>{{ video.category|capitalize }} · {{ video.filename }}</h4>
+        <video controls preload="metadata" style="width:100%;max-height:360px" aria-label="{{ video.category|capitalize }} video for {{ s.full_name }}">
+          <source src="{{ url_for('parents.video', student_id=s.id, category=video.category, filename=video.filename) }}">
+          Your browser does not support video playback.
+        </video>
+      </div>{% endfor %}</div>
+    {% else %}<p class="muted">No kata or kumite videos are available yet.</p>{% endif %}
+  </div>
+  {% if s.photos %}<div><h3>Training photos</h3><div class="grid g3">{% for photo in s.photos %}<img src="{{ url_for('parents.photo', student_id=s.id, filename=photo) }}" alt="Training photo for {{ s.full_name }}" loading="lazy" style="width:100%;height:auto">{% endfor %}</div></div>{% endif %}
+</section>
+{% else %}
+{{ empty('fa-user-group', 'No students linked', 'Ask the dojo administrator to link your parent account to a student.') }}
+{% endfor %}
+{% endblock %}

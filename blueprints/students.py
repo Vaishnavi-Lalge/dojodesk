@@ -1,20 +1,30 @@
 import io
+import re
+import tempfile
+import uuid
+from pathlib import Path
 
 import psycopg2
-from flask import (Blueprint, Response, abort, flash, g, redirect, render_template, request, url_for)
+from flask import (Blueprint, Response, abort, current_app, flash, redirect, render_template, request,
+                   send_from_directory, url_for)
 from PIL import Image, ImageOps, UnidentifiedImageError
+from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
 
-from auth_utils import admin_required, is_admin, login_required
+from auth_utils import admin_required, is_admin, login_required, password_problem
 from blueprints.batches import enroll_student
 from db_config import fetch_all, fetch_one, transaction
 from helpers import (ATT_PCT_SQL, age_on, audit, batch_choices, belt_choices, clean, csv_response,
                      like_pattern, order_by, paginate, parse_date, parse_int, today, valid_email, valid_phone)
+from media_utils import student_photo_files, student_video_files
 
 bp = Blueprint("students", __name__, url_prefix="/students")
 SORTS = {"name": "lower(s.full_name)", "code": "s.student_code", "belt": "b.rank_order",
          "joined": "s.joining_date", "status": "s.status"}
 STATUSES = ("active", "inactive", "archived")
 MAX_PHOTO = 2 * 1024 * 1024
+MAX_VIDEO = 100 * 1024 * 1024
+VIDEO_SIGNATURES = {".mp4": b"ftyp", ".m4v": b"ftyp", ".webm": b"\x1a\x45\xdf\xa3"}
 Image.MAX_IMAGE_PIXELS = 25_000_000  # guards against decompression bombs
 
 
@@ -263,9 +273,177 @@ def detail(student_id):
     exams = fetch_all("""SELECT x.id, x.exam_date, x.result, t.name AS target_belt FROM examinations x
                          JOIN belt_ranks t ON t.id = x.target_belt_id WHERE x.student_id=%s
                          ORDER BY x.exam_date DESC LIMIT 10""", (student_id,))
+    parent_accounts = fetch_all("""SELECT p.id, p.username, p.full_name, p.is_active
+                                   FROM parent_students ps JOIN parent_accounts p ON p.id=ps.parent_id
+                                   WHERE ps.student_id=%s ORDER BY lower(p.full_name)""", (student_id,))
+    videos = student_video_files(s["student_code"])
+    photos = student_photo_files(s["student_code"])
     return render_template("student_detail.html", s=s, batches=batches, att=att, history=history, fees=fees,
                            outstanding=outstanding, promotions=promotions, exams=exams,
-                           is_minor=age_on(s["dob"], today()) < 18)
+                           is_minor=age_on(s["dob"], today()) < 18,
+                           parent_accounts=parent_accounts, videos=videos, photos=photos)
+
+
+def _media_filename(original, extension):
+    stem = Path(secure_filename(original)).stem[:80] or "upload"
+    return f"{uuid.uuid4().hex}_{stem}{extension}"
+
+
+def _store_video(upload, folder):
+    original = secure_filename(upload.filename or "")
+    extension = Path(original).suffix.lower()
+    if not original or extension not in VIDEO_SIGNATURES:
+        raise ValueError("Choose an MP4, M4V, or WebM video.")
+    header = upload.stream.read(32)
+    if extension == ".webm":
+        valid_signature = header.startswith(VIDEO_SIGNATURES[extension])
+    else:
+        valid_signature = header[4:8] == VIDEO_SIGNATURES[extension]
+    if not valid_signature:
+        raise ValueError("That file does not appear to be a valid video of the selected type.")
+
+    folder.mkdir(parents=True, exist_ok=True)
+    filename = _media_filename(original, extension)
+    target = folder / filename
+    temporary_path = None
+    size = len(header)
+    try:
+        with tempfile.NamedTemporaryFile(dir=folder, prefix=".upload-", delete=False) as temporary:
+            temporary_path = Path(temporary.name)
+            temporary.write(header)
+            while chunk := upload.stream.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_VIDEO:
+                    raise ValueError("Videos must be 100 MB or smaller.")
+                temporary.write(chunk)
+        temporary_path.replace(target)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+    return filename
+
+
+@bp.post("/<int:student_id>/media")
+@admin_required
+def upload_media(student_id):
+    student = fetch_one("SELECT student_code, full_name FROM students WHERE id=%s", (student_id,)) or abort(404)
+    video = request.files.get("video")
+    category = request.form.get("category")
+    photos = [item for item in request.files.getlist("photos") if item.filename]
+    has_video = bool(video and video.filename)
+    if not has_video and not photos:
+        flash("Choose at least one photo or video to upload.", "error")
+        return redirect(url_for("students.detail", student_id=student_id))
+    if len(photos) > 10:
+        flash("Upload no more than 10 photos at a time.", "error")
+        return redirect(url_for("students.detail", student_id=student_id))
+    if has_video and category not in ("kata", "kumite"):
+        flash("Choose whether the video is kata or kumite.", "error")
+        return redirect(url_for("students.detail", student_id=student_id))
+
+    prepared_photos = []
+    try:
+        for upload in photos:
+            prepared_photos.append((upload, process_photo(upload)))
+        if has_video:
+            folder = current_app.config["MEDIA_DIR"] / "students" / student["student_code"] / category
+            _store_video(video, folder)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("students.detail", student_id=student_id))
+
+    photo_folder = current_app.config["MEDIA_DIR"] / "students" / student["student_code"] / "photos"
+    photo_names = []
+    for upload, data in prepared_photos:
+        filename = _media_filename(upload.filename, ".jpg")
+        photo_folder.mkdir(parents=True, exist_ok=True)
+        (photo_folder / filename).write_bytes(data)
+        photo_names.append(filename)
+
+    with transaction() as cur:
+        audit(cur, "upload_student_media", "student", student_id,
+              photos=len(photo_names), video_category=category if has_video else None,
+              video_uploaded=has_video)
+    flash(f"Uploaded {len(photo_names)} photo(s)"
+          + (f" and one {category} video." if has_video else "."), "success")
+    return redirect(url_for("students.detail", student_id=student_id))
+
+
+@bp.post("/<int:student_id>/parents")
+@admin_required
+def create_parent_account(student_id):
+    student = fetch_one("SELECT id, full_name FROM students WHERE id=%s AND status <> 'archived'",
+                        (student_id,)) or abort(404)
+    username = clean(request.form.get("username"), 80)
+    full_name = clean(request.form.get("full_name"), 120)
+    password = request.form.get("password") or ""
+    if not re.fullmatch(r"[A-Za-z0-9._@+-]{2,80}", username):
+        flash("Use 2–80 letters, numbers, dots, underscores, @, + or - for the username.", "error")
+    elif not full_name:
+        flash("Enter the parent's full name.", "error")
+    elif fetch_one("SELECT 1 FROM parent_accounts WHERE lower(username)=lower(%s)", (username,)):
+        flash("That parent username already exists. Use the existing-account link form.", "error")
+    elif problem := password_problem(password):
+        flash(problem, "error")
+    else:
+        try:
+            with transaction() as cur:
+                cur.execute("""INSERT INTO parent_accounts (username, password_hash, full_name)
+                               VALUES (%s,%s,%s) RETURNING id""",
+                            (username, generate_password_hash(password), full_name))
+                parent_id = cur.fetchone()["id"]
+                cur.execute("INSERT INTO parent_students (parent_id, student_id) VALUES (%s,%s)",
+                            (parent_id, student_id))
+                audit(cur, "create", "parent_account", parent_id, student_id=student_id)
+            flash(f"Parent account created for {student['full_name']}.", "success")
+            return redirect(url_for("students.detail", student_id=student_id))
+        except psycopg2.errors.UniqueViolation:
+            flash("That parent username already exists. Use the existing-account link form.", "error")
+    return redirect(url_for("students.detail", student_id=student_id))
+
+
+@bp.post("/<int:student_id>/parents/link")
+@admin_required
+def link_parent_account(student_id):
+    if not fetch_one("SELECT id FROM students WHERE id=%s AND status <> 'archived'",
+                     (student_id,)):
+        abort(404)
+    username = clean(request.form.get("username"), 80)
+    parent = fetch_one("SELECT id, full_name FROM parent_accounts WHERE lower(username)=lower(%s) AND is_active",
+                       (username,))
+    if not parent:
+        flash("No active parent account has that username.", "error")
+    else:
+        with transaction() as cur:
+            cur.execute("INSERT INTO parent_students (parent_id, student_id) VALUES (%s,%s) "
+                        "ON CONFLICT DO NOTHING", (parent["id"], student_id))
+            linked = cur.rowcount > 0
+            if linked:
+                audit(cur, "link_parent", "student", student_id, parent_id=parent["id"])
+        flash("Parent account linked." if linked else "That parent is already linked to this student.",
+              "success" if linked else "info")
+    return redirect(url_for("students.detail", student_id=student_id))
+
+
+@bp.post("/<int:student_id>/parents/<int:parent_id>/password")
+@admin_required
+def reset_parent_password(student_id, parent_id):
+    linked = fetch_one("""SELECT p.full_name FROM parent_accounts p
+                          JOIN parent_students ps ON ps.parent_id=p.id
+                          WHERE p.id=%s AND ps.student_id=%s""", (parent_id, student_id))
+    if not linked:
+        abort(404)
+    password = request.form.get("password") or ""
+    problem = password_problem(password)
+    if problem:
+        flash(problem, "error")
+    else:
+        with transaction() as cur:
+            cur.execute("UPDATE parent_accounts SET password_hash=%s WHERE id=%s",
+                        (generate_password_hash(password), parent_id))
+            audit(cur, "reset_parent_password", "parent_account", parent_id, student_id=student_id)
+        flash(f"Password reset for {linked['full_name']}.", "success")
+    return redirect(url_for("students.detail", student_id=student_id))
 
 
 @bp.post("/<int:student_id>/status")
@@ -298,3 +476,52 @@ def photo(student_id):
     resp = Response(bytes(row["photo"]), mimetype=row["photo_mime"] or "image/jpeg")
     resp.headers["Cache-Control"] = "private, max-age=300"
     return resp
+
+
+@bp.get("/<int:student_id>/videos/<category>/<path:filename>")
+@login_required
+def video(student_id, category, filename):
+    student = fetch_one("SELECT student_code FROM students WHERE id=%s", (student_id,)) or abort(404)
+    folder = current_app.config["MEDIA_DIR"] / "students" / student["student_code"] / category
+    allowed = {item["filename"] for item in student_video_files(student["student_code"])
+               if item["category"] == category}
+    if filename not in allowed:
+        abort(404)
+    response = send_from_directory(folder, filename, conditional=True, as_attachment=False)
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
+@bp.get("/<int:student_id>/photos/<path:filename>")
+@login_required
+def media_photo(student_id, filename):
+    student = fetch_one("SELECT student_code FROM students WHERE id=%s", (student_id,)) or abort(404)
+    allowed = set(student_photo_files(student["student_code"]))
+    if filename not in allowed:
+        abort(404)
+    folder = current_app.config["MEDIA_DIR"] / "students" / student["student_code"] / "photos"
+    response = send_from_directory(folder, filename, mimetype="image/jpeg", conditional=True)
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
+@bp.get("/syllabus")
+@login_required
+def syllabus():
+    from media_utils import syllabus_files
+    return render_template("syllabus.html", files=syllabus_files(), parent_view=False)
+
+
+@bp.get("/syllabus/<path:filename>")
+@login_required
+def syllabus_pdf(filename):
+    from media_utils import syllabus_files
+    from pathlib import Path
+
+    allowed = {item["filename"] for item in syllabus_files()}
+    if filename not in allowed:
+        abort(404)
+    folder = Path(current_app.config["MEDIA_DIR"]) / "syllabus"
+    response = send_from_directory(folder, filename, mimetype="application/pdf", as_attachment=True)
+    response.headers["Cache-Control"] = "private, no-store"
+    return response

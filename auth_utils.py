@@ -25,6 +25,8 @@ def login_required(view):
             user = fetch_one("SELECT id, username, full_name, role FROM admins "
                              "WHERE id = %s AND is_active", (uid,))
         if not user:
+            if session.get("parent_uid"):
+                return redirect(url_for("parents.index"))
             session.clear()
             nxt = request.full_path.rstrip("?") if request.method == "GET" else None
             return redirect(url_for("auth.login", next=nxt))
@@ -39,6 +41,21 @@ def admin_required(view):
     def wrapper(*args, **kwargs):
         if g.user["role"] != "admin":
             abort(403)
+        return view(*args, **kwargs)
+    return wrapper
+
+
+def parent_required(view):
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        uid = session.get("parent_uid")
+        user = fetch_one("SELECT id, username, full_name FROM parent_accounts "
+                         "WHERE id = %s AND is_active", (uid,)) if uid else None
+        if not user:
+            session.pop("parent_uid", None)
+            nxt = request.full_path.rstrip("?") if request.method == "GET" else None
+            return redirect(url_for("parents.login", next=nxt))
+        g.parent_user = user
         return view(*args, **kwargs)
     return wrapper
 

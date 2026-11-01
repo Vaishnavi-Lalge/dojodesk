@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf with context %}
+{% block title %}Parent sign in{% endblock %}
+{% block layout %}
+<main id="main" class="bare">
+  {% include "_flashes.html" %}
+  <div class="login-card">
+    <div class="login-brand"><span class="mark"><i class="fa-solid fa-hand-fist" aria-hidden="true"></i></span>
+      <h1>Parent sign in</h1><p class="muted">{{ dojo_name }}</p></div>
+    <form class="card" method="post" novalidate>
+      {{ csrf() }}
+      <div class="stack" style="margin:0">
+        <div class="field"><label for="username">Username</label>
+          <input id="username" name="username" value="{{ username }}" autocomplete="username" autofocus required></div>
+        <div class="field"><label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required></div>
+        <button class="btn btn-primary" type="submit">Sign in</button>
+      </div>
+      <p class="hint" style="margin:14px 0 0">Parent accounts are created by the dojo administrator. Ask them if you need access or a password reset.</p>
+      <p class="hint"><a href="{{ url_for('auth.login') }}">Staff sign in</a></p>
+      <p class="hint"><a href="{{ url_for('syllabus.index') }}">View kata syllabus</a></p>
+    </form>
+  </div>
+</main>
+{% endblock %}
+{% block content %}{% endblock %}

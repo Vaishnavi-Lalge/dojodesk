@@ -5,6 +5,7 @@ import secrets
 import sys
 from datetime import timedelta
 from decimal import Decimal
+from pathlib import Path
 
 import click
 import psycopg2
@@ -39,9 +40,10 @@ def create_app(test_config=None):
         SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=(env == "production"),
         PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
-        MAX_CONTENT_LENGTH=4 * 1024 * 1024,
+        MAX_CONTENT_LENGTH=105 * 1024 * 1024,
         WTF_CSRF_TIME_LIMIT=None,
         ATTENDANCE_EDIT_WINDOW_DAYS=7,
+        MEDIA_DIR=Path(os.environ.get("MEDIA_DIR") or Path(__file__).parent / "media"),
     )
     if test_config:
         app.config.update(test_config)
@@ -51,8 +53,8 @@ def create_app(test_config=None):
     csrf.init_app(app)
     app.teardown_appcontext(db_config.close_conn)
 
-    from blueprints import attendance, auth, batches, dashboard, exams, fees, reports, students
-    for module in (auth, dashboard, students, batches, attendance, fees, exams, reports):
+    from blueprints import attendance, auth, batches, dashboard, exams, fees, parents, reports, students, syllabus
+    for module in (auth, dashboard, students, batches, attendance, fees, exams, reports, parents, syllabus):
         app.register_blueprint(module.bp)
 
     register_filters(app)
@@ -111,7 +113,8 @@ def register_filters(app):
             args = {k: v for k, v in args.items() if v not in (None, "")}
             return url_for(request.endpoint, **(request.view_args or {}), **args)
         return {"dojo_name": app.config["DOJO_NAME"], "url_with": url_with, "today": today,
-                "is_admin": is_admin, "current_user": g.get("user")}
+                "is_admin": is_admin, "current_user": g.get("user"),
+                "parent_user": g.get("parent_user")}
 
 
 def register_errors(app):
@@ -142,7 +145,7 @@ def register_errors(app):
 
     @app.errorhandler(413)
     def e413(e):
-        return page(413, "That file is too large", "Choose a photo smaller than 2 MB.")
+        return page(413, "That file is too large", "Keep each photo under 2 MB and each video under 100 MB.")
 
     @app.errorhandler(psycopg2.Error)
     def edb(e):
